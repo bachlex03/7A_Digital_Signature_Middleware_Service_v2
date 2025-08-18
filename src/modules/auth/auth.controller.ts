@@ -11,6 +11,7 @@ import {
 import { AuthService } from './auth.service';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
+import { CredentialListRequestDto } from './dto/credential-list-request.dto';
 
 export class LoginDto {
   username: string;
@@ -25,6 +26,27 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
     return this.authService.login(loginDto.username, loginDto.password);
+  }
+
+  @Post('credentials/list')
+  @HttpCode(HttpStatus.OK)
+  async getListCredentials(
+    @Body() dto: CredentialListRequestDto,
+  ): Promise<any> {
+    const {
+      agreementUUID,
+      certificates,
+      certInfoEnabled,
+      authInfoEnabled,
+      searchConditions,
+    } = dto;
+    return this.authService.getListCredentials(
+      agreementUUID,
+      certificates,
+      certInfoEnabled,
+      authInfoEnabled,
+      searchConditions,
+    );
   }
 
   //   @Post('logout')

@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as forge from 'node-forge';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
+import { CredentialListRequestDto } from './dto/credential-list-request.dto';
 import { sslConfig } from 'src/configs/ssl/ssl.config';
 
 @Injectable()
@@ -71,11 +72,17 @@ export class AuthService {
 
     this.logger.log(`Login-retry: ${this.retryLoginCount}`);
 
+    console.log(
+      'process.env.DIGITAL_SIGNATURE_RELYING_PARTY',
+      process.env.DIGITAL_SIGNATURE_RELYING_PARTY,
+    );
+
     try {
       const loginRequest: LoginRequestDto = {
         rememberMeEnabled: true,
         relyingParty: process.env.DIGITAL_SIGNATURE_RELYING_PARTY || '',
-        lang: 'en',
+        profile: 'rssp-119.432-v2.0',
+        lang: 'VN',
       };
 
       const response = await this.sendLoginRequest(loginRequest, authHeader);
@@ -177,6 +184,7 @@ export class AuthService {
   ): Promise<LoginResponseDto> {
     const baseUrl = this.configService.get<string>('DIGITAL_SIGNATURE_URL');
 
+    console.log('baseUrl', baseUrl);
     console.log('loginRequest', loginRequest);
     console.log('authHeader', authHeader);
 
@@ -197,6 +205,90 @@ export class AuthService {
       return response.data;
     } catch (error) {
       this.logger.error('HTTP request failed', error);
+      throw new Error(`HTTP request failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get list of credentials - equivalent to C# ServerSession.listCertificates()
+   */
+  async getListCredentials(
+    agreementUUID?: string,
+    certificate?: string,
+    certInfoEnabled: boolean = false,
+    authInfoEnabled: boolean = false,
+    searchConditions?: any,
+  ): Promise<any> {
+    this.logger.log('____________credentials/list____________');
+
+    if (!this.bearerToken) {
+      throw new UnauthorizedException('Not authenticated. Please login first.');
+    }
+
+    try {
+      const credentialListRequest = {
+        agreementUUID,
+        certificates: certificate,
+        certInfoEnabled,
+        authInfoEnabled,
+        searchConditions,
+        lang: 'VN',
+      };
+
+      const response = await this.sendCredentialListRequest(
+        credentialListRequest,
+      );
+
+      if (response.error === 3005 || response.error === 3006) {
+        // Token expired or invalid - retry login and retry request
+        this.logger.log('Token expired, attempting to relogin...');
+        await this.login(
+          process.env.DIGITAL_SIGNATURE_RELYING_PARTY_USER || '',
+          process.env.DIGITAL_SIGNATURE_RELYING_PARTY_PASSWORD || '',
+        );
+        return this.getListCredentials(
+          agreementUUID,
+          certificate,
+          certInfoEnabled,
+          authInfoEnabled,
+          searchConditions,
+        );
+      } else if (response.error !== 0) {
+        throw new UnauthorizedException(response.errorDescription);
+      }
+
+      this.logger.log(`Error code: ${response.error}`);
+      this.logger.log(`Error description: ${response.errorDescription}`);
+
+      return response;
+    } catch (error) {
+      this.logger.error('Failed to get credentials list', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send credentials list request to credentials/list endpoint
+   */
+  private async sendCredentialListRequest(
+    credentialListRequest: any,
+  ): Promise<any> {
+    const baseUrl = this.configService.get<string>('DIGITAL_SIGNATURE_URL');
+    const url = `${baseUrl}/credentials/list`;
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(url, credentialListRequest, {
+          headers: {
+            Authorization: this.bearerToken,
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error('HTTP request failed for credentials list', error);
       throw new Error(`HTTP request failed: ${error.message}`);
     }
   }

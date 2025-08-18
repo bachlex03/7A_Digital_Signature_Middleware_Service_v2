@@ -45,6 +45,50 @@ Logs out the current user and clears all tokens.
 
 Returns the current authentication status.
 
+### POST /auth/credentials/list
+
+Retrieves a list of credentials/certificates.
+
+**Request Body:**
+
+```json
+{
+  "agreementUUID": "optional-agreement-uuid",
+  "certificates": "optional-certificate-filter",
+  "certInfoEnabled": false,
+  "authInfoEnabled": false,
+  "searchConditions": {
+    "searchText": "optional-search-text",
+    "status": "optional-status-filter",
+    "type": "optional-type-filter"
+  },
+  "lang": "VN"
+}
+```
+
+**Response:**
+
+```json
+{
+  "error": 0,
+  "errorDescription": "Success",
+  "responseID": "response_id",
+  "certs": [
+    {
+      "credentialID": "credential_id",
+      "status": "active",
+      "type": "certificate_type",
+      "issuer": "issuer_name",
+      "subject": "subject_name",
+      "validFrom": "2024-01-01",
+      "validTo": "2025-01-01",
+      "serialNumber": "serial_number",
+      "thumbprint": "thumbprint_hash"
+    }
+  ]
+}
+```
+
 ## Environment Variables
 
 Required environment variables:
@@ -83,6 +127,26 @@ export class YourService {
       }
     } catch (error) {
       console.error('Authentication failed:', error);
+    }
+  }
+
+  async getCredentials() {
+    try {
+      // Get all credentials
+      const allCredentials = await this.authService.getListCredentials();
+
+      // Get credentials with filters
+      const filteredCredentials = await this.authService.getListCredentials(
+        'agreement-uuid',
+        'certificate-filter',
+        true, // certInfoEnabled
+        true, // authInfoEnabled
+        { searchText: 'search-term' },
+      );
+
+      return filteredCredentials;
+    } catch (error) {
+      console.error('Failed to get credentials:', error);
     }
   }
 }

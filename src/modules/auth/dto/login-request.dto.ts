@@ -8,6 +8,9 @@ export class LoginRequestDto {
   relyingParty: string;
 
   @IsString()
+  profile: string;
+
+  @IsString()
   @IsOptional()
   lang?: string;
 }
