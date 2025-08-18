@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { HttpClientService } from './http-client.service';
+// import { HttpClientService } from './http-client.service';
 
 @Module({
   imports: [],
-  providers: [HttpClientService],
-  exports: [HttpClientService],
+  providers: [],
+  exports: [],
 })
 export class HttpClientModule {}

@@ -9,6 +9,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { configuration, envValidationSchema } from './configs/env';
 import { HttpClientModule } from './modules/http-client/http-client.module';
+import { SignatureModule } from './modules/signature/signature.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { HttpClientModule } from './modules/http-client/http-client.module';
       validationSchema: envValidationSchema,
     }),
     HttpClientModule,
+    SignatureModule,
   ],
   controllers: [AppController],
   providers: [AppService],
