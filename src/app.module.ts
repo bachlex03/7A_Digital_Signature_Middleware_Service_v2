@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { configuration, envValidationSchema } from './configs/env';
+import { HttpClientModule } from './modules/http-client/http-client.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { configuration, envValidationSchema } from './configs/env';
       isGlobal: true,
       validationSchema: envValidationSchema,
     }),
+    HttpClientModule,
   ],
   controllers: [AppController],
   providers: [AppService],
