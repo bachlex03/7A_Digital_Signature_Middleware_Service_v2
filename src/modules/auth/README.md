@@ -151,6 +151,51 @@ Retrieves detailed information about a specific credential/certificate.
 }
 ```
 
+### POST /auth/credentials/authorize
+
+Authorizes a credential for signing operations.
+
+**Request Body:**
+
+```json
+{
+  "agreementUUID": "required-agreement-uuid",
+  "credentialID": "required-credential-id",
+  "numSignatures": 1,
+  "documentDigests": {
+    "hashes": ["hash1", "hash2"],
+    "algorithm": "SHA256"
+  },
+  "signAlgo": "SHA256",
+  "authorizeCode": "optional-authorization-code",
+  "notificationMessage": "Please authorize this transaction",
+  "messageCaption": "Transaction Authorization",
+  "message": "You are about to sign important documents",
+  "logoURI": "https://example.com/logo.png",
+  "bgImageURI": "https://example.com/background.png",
+  "rpIconURI": "https://example.com/rp-icon.png",
+  "rpName": "Your Company Name",
+  "vcEnabled": true,
+  "acEnabled": true,
+  "scaIdentity": "user@example.com",
+  "lang": "VN",
+  "requestID": "optional-otp-request-id"
+}
+```
+
+**Response:**
+
+```json
+{
+  "SAD": "strong_authentication_data_token"
+}
+```
+
+**Note:** The endpoint supports two flows:
+
+1. **Regular Authorization**: Uses mobile display template for user interaction
+2. **OTP Authorization**: Uses requestID and authorizeCode for OTP-based authentication
+
 ## Environment Variables
 
 Required environment variables:
@@ -230,6 +275,44 @@ export class YourService {
       return detailedCredentialInfo;
     } catch (error) {
       console.error('Failed to get credential info:', error);
+    }
+  }
+
+  async authorizeCredential() {
+    try {
+      // Regular authorization with mobile display template
+      const SAD = await this.authService.authorizeCredential(
+        'agreement-uuid',
+        'credential-id',
+        1, // numSignatures
+        { hashes: ['hash1', 'hash2'], algorithm: 'SHA256' }, // documentDigests
+        'SHA256', // signAlgo
+        'auth-code', // authorizeCode
+        {
+          notificationMessage: 'Please authorize this transaction',
+          messageCaption: 'Transaction Authorization',
+          message: 'You are about to sign important documents',
+          logoURI: 'https://example.com/logo.png',
+          rpName: 'Your Company Name',
+          vcEnabled: true,
+          acEnabled: true,
+        },
+      );
+
+      // OTP-based authorization
+      const SADWithOTP = await this.authService.authorizeCredentialWithOTP(
+        'agreement-uuid',
+        'credential-id',
+        1, // numSignatures
+        { hashes: ['hash1', 'hash2'], algorithm: 'SHA256' }, // documentDigests
+        'SHA256', // signAlgo
+        'otp-request-id', // otpRequestID
+        '123456', // passCode
+      );
+
+      return { SAD, SADWithOTP };
+    } catch (error) {
+      console.error('Failed to authorize credential:', error);
     }
   }
 }

@@ -8,6 +8,7 @@ import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { CredentialListRequestDto } from './dto/credential-list-request.dto';
 import { CredentialInfoRequestDto } from './dto/credential-info-request.dto';
+import { CredentialAuthorizeRequestDto } from './dto/credential-authorize-request.dto';
 import { sslConfig } from 'src/configs/ssl/ssl.config';
 
 @Injectable()
@@ -386,6 +387,156 @@ export class AuthService {
       return response.data;
     } catch (error) {
       this.logger.error('HTTP request failed for credential info', error);
+      throw new Error(`HTTP request failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Authorize credential for signing - equivalent to C# ServerSession.authorize()
+   */
+  async authorizeCredential(
+    agreementUUID: string,
+    credentialID: string,
+    numSignatures: number,
+    documentDigests?: any,
+    signAlgo?: any,
+    authorizeCode?: string,
+    mobileDisplayTemplate?: any,
+  ): Promise<string> {
+    this.logger.log('____________credentials/authorize____________');
+
+    if (!this.bearerToken) {
+      throw new UnauthorizedException('Not authenticated. Please login first.');
+    }
+
+    try {
+      const authorizeRequest = {
+        agreementUUID,
+        credentialID,
+        numSignatures,
+        documentDigests,
+        signAlgo,
+        authorizeCode,
+        lang: 'VN',
+        validityPeriod: 300,
+        operationMode: 'S', // Sign mode
+        ...mobileDisplayTemplate, // Spread mobile display template properties
+      };
+
+      const response =
+        await this.sendCredentialAuthorizeRequest(authorizeRequest);
+
+      if (response.error === 3005 || response.error === 3006) {
+        // Token expired or invalid - retry login and retry request
+        this.logger.log('Token expired, attempting to relogin...');
+        await this.login(
+          process.env.DIGITAL_SIGNATURE_RELYING_PARTY_USER || '',
+          process.env.DIGITAL_SIGNATURE_RELYING_PARTY_PASSWORD || '',
+        );
+        return this.authorizeCredential(
+          agreementUUID,
+          credentialID,
+          numSignatures,
+          documentDigests,
+          signAlgo,
+          authorizeCode,
+          mobileDisplayTemplate,
+        );
+      } else if (response.error !== 0) {
+        throw new UnauthorizedException(response.errorDescription);
+      }
+
+      return response.SAD; // Return Strong Authentication Data
+    } catch (error) {
+      this.logger.error('Failed to authorize credential', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Authorize credential with OTP - alternative flow
+   */
+  async authorizeCredentialWithOTP(
+    agreementUUID: string,
+    credentialID: string,
+    numSignatures: number,
+    documentDigests: any,
+    signAlgo: any,
+    otpRequestID: string,
+    passCode: string,
+  ): Promise<string> {
+    this.logger.log('____________credentials/authorize (OTP)____________');
+
+    if (!this.bearerToken) {
+      throw new UnauthorizedException('Not authenticated. Please login first.');
+    }
+
+    try {
+      const authorizeRequest = {
+        agreementUUID,
+        credentialID,
+        numSignatures,
+        documentDigests,
+        signAlgo,
+        requestID: otpRequestID,
+        authorizeCode: passCode,
+        lang: 'VN',
+        validityPeriod: 300,
+        operationMode: 'S', // Sign mode
+      };
+
+      const response =
+        await this.sendCredentialAuthorizeRequest(authorizeRequest);
+
+      if (response.error === 3005 || response.error === 3006) {
+        // Token expired or invalid - retry login and retry request
+        this.logger.log('Token expired, attempting to relogin...');
+        await this.login(
+          process.env.DIGITAL_SIGNATURE_RELYING_PARTY_USER || '',
+          process.env.DIGITAL_SIGNATURE_RELYING_PARTY_PASSWORD || '',
+        );
+        return this.authorizeCredentialWithOTP(
+          agreementUUID,
+          credentialID,
+          numSignatures,
+          documentDigests,
+          signAlgo,
+          otpRequestID,
+          passCode,
+        );
+      } else if (response.error !== 0) {
+        throw new UnauthorizedException(response.errorDescription);
+      }
+
+      return response.SAD; // Return Strong Authentication Data
+    } catch (error) {
+      this.logger.error('Failed to authorize credential with OTP', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send credential authorize request to credentials/authorize endpoint
+   */
+  private async sendCredentialAuthorizeRequest(
+    authorizeRequest: any,
+  ): Promise<any> {
+    const baseUrl = this.configService.get<string>('DIGITAL_SIGNATURE_URL');
+    const url = `${baseUrl}/credentials/authorize`;
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(url, authorizeRequest, {
+          headers: {
+            Authorization: this.bearerToken,
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error('HTTP request failed for credential authorize', error);
       throw new Error(`HTTP request failed: ${error.message}`);
     }
   }

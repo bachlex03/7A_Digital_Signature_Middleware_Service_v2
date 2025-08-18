@@ -13,6 +13,7 @@ import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { CredentialListRequestDto } from './dto/credential-list-request.dto';
 import { CredentialInfoRequestDto } from './dto/credential-info-request.dto';
+import { CredentialAuthorizeRequestDto } from './dto/credential-authorize-request.dto';
 
 export class LoginDto {
   username: string;
@@ -67,6 +68,73 @@ export class AuthController {
       certInfoEnabled,
       authInfoEnabled,
     );
+  }
+
+  @Post('credentials/authorize')
+  @HttpCode(HttpStatus.OK)
+  async authorizeCredential(
+    @Body() dto: CredentialAuthorizeRequestDto,
+  ): Promise<{ SAD: string }> {
+    const {
+      agreementUUID,
+      credentialID,
+      numSignatures,
+      documentDigests,
+      signAlgo,
+      authorizeCode,
+      requestID,
+      // Mobile display template fields
+      notificationMessage,
+      messageCaption,
+      message,
+      logoURI,
+      bgImageURI,
+      rpIconURI,
+      rpName,
+      vcEnabled,
+      acEnabled,
+      scaIdentity,
+    } = dto;
+
+    // Check if this is an OTP flow
+    if (requestID && authorizeCode) {
+      const SAD = await this.authService.authorizeCredentialWithOTP(
+        agreementUUID,
+        credentialID,
+        numSignatures,
+        documentDigests,
+        signAlgo,
+        requestID,
+        authorizeCode,
+      );
+      return { SAD };
+    }
+
+    // Regular authorization flow
+    const mobileDisplayTemplate = {
+      notificationMessage,
+      messageCaption,
+      message,
+      logoURI,
+      bgImageURI,
+      rpIconURI,
+      rpName,
+      vcEnabled,
+      acEnabled,
+      scaIdentity,
+    };
+
+    const SAD = await this.authService.authorizeCredential(
+      agreementUUID,
+      credentialID,
+      numSignatures,
+      documentDigests,
+      signAlgo,
+      authorizeCode,
+      mobileDisplayTemplate,
+    );
+
+    return { SAD };
   }
 
   //   @Post('logout')
