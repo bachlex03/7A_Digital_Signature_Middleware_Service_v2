@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { CredentialListRequestDto } from './dto/credential-list-request.dto';
+import { CredentialInfoRequestDto } from './dto/credential-info-request.dto';
 
 export class LoginDto {
   username: string;
@@ -46,6 +47,25 @@ export class AuthController {
       certInfoEnabled,
       authInfoEnabled,
       searchConditions,
+    );
+  }
+
+  @Post('credentials/info')
+  @HttpCode(HttpStatus.OK)
+  async getCredentialInfo(@Body() dto: CredentialInfoRequestDto): Promise<any> {
+    const {
+      credentialID,
+      agreementUUID,
+      certificates,
+      certInfoEnabled,
+      authInfoEnabled,
+    } = dto;
+    return this.authService.getCredentialInfo(
+      credentialID,
+      agreementUUID,
+      certificates,
+      certInfoEnabled,
+      authInfoEnabled,
     );
   }
 

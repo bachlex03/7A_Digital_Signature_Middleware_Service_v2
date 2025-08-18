@@ -7,6 +7,7 @@ import * as forge from 'node-forge';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { CredentialListRequestDto } from './dto/credential-list-request.dto';
+import { CredentialInfoRequestDto } from './dto/credential-info-request.dto';
 import { sslConfig } from 'src/configs/ssl/ssl.config';
 
 @Injectable()
@@ -289,6 +290,102 @@ export class AuthService {
       return response.data;
     } catch (error) {
       this.logger.error('HTTP request failed for credentials list', error);
+      throw new Error(`HTTP request failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get credential information - equivalent to C# ServerSession.certificateInfo()
+   */
+  async getCredentialInfo(
+    credentialID: string,
+    agreementUUID?: string,
+    certificate?: string,
+    certInfoEnabled: boolean = false,
+    authInfoEnabled: boolean = false,
+  ): Promise<any> {
+    this.logger.log('____________credentials/info____________');
+
+    if (!this.bearerToken) {
+      throw new UnauthorizedException('Not authenticated. Please login first.');
+    }
+
+    try {
+      const credentialInfoRequest = {
+        agreementUUID,
+        credentialID,
+        certificates: certificate,
+        certInfoEnabled,
+        authInfoEnabled,
+        lang: 'VN',
+      };
+
+      const response = await this.sendCredentialInfoRequest(
+        credentialInfoRequest,
+      );
+
+      if (response.error === 3005 || response.error === 3006) {
+        // Token expired or invalid - retry login and retry request
+        this.logger.log('Token expired, attempting to relogin...');
+        await this.login(
+          process.env.DIGITAL_SIGNATURE_RELYING_PARTY_USER || '',
+          process.env.DIGITAL_SIGNATURE_RELYING_PARTY_PASSWORD || '',
+        );
+        return this.getCredentialInfo(
+          credentialID,
+          agreementUUID,
+          certificate,
+          certInfoEnabled,
+          authInfoEnabled,
+        );
+      } else if (response.error !== 0) {
+        throw new UnauthorizedException(response.errorDescription);
+      }
+
+      // Process the response similar to C# implementation
+      if (response.cert) {
+        response.cert.authorizationEmail = response.authorizationEmail;
+        response.cert.authorizationPhone = response.authorizationPhone;
+        response.cert.sharedMode = response.sharedMode;
+        response.cert.createdRP = response.createdRP;
+        response.cert.authModes = response.authModes;
+        response.cert.authMode = response.authMode;
+        response.cert.SCAL = response.SCAL;
+        response.cert.contractExpirationDate = response.contractExpirationDate;
+        response.cert.defaultPassphraseEnabled =
+          response.defaultPassphraseEnabled;
+        response.cert.trialEnabled = response.trialEnabled;
+      }
+
+      return response;
+    } catch (error) {
+      this.logger.error('Failed to get credential info', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send credential info request to credentials/info endpoint
+   */
+  private async sendCredentialInfoRequest(
+    credentialInfoRequest: any,
+  ): Promise<any> {
+    const baseUrl = this.configService.get<string>('DIGITAL_SIGNATURE_URL');
+    const url = `${baseUrl}/credentials/info`;
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(url, credentialInfoRequest, {
+          headers: {
+            Authorization: this.bearerToken,
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error('HTTP request failed for credential info', error);
       throw new Error(`HTTP request failed: ${error.message}`);
     }
   }

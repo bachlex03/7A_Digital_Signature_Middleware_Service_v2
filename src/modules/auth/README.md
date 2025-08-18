@@ -89,6 +89,68 @@ Retrieves a list of credentials/certificates.
 }
 ```
 
+### POST /auth/credentials/info
+
+Retrieves detailed information about a specific credential/certificate.
+
+**Request Body:**
+
+```json
+{
+  "credentialID": "required-credential-id",
+  "agreementUUID": "optional-agreement-uuid",
+  "certificates": "optional-certificate-filter",
+  "certInfoEnabled": false,
+  "authInfoEnabled": false,
+  "lang": "VN"
+}
+```
+
+**Response:**
+
+```json
+{
+  "error": 0,
+  "errorDescription": "Success",
+  "responseID": "response_id",
+  "cert": {
+    "credentialID": "credential_id",
+    "status": "active",
+    "type": "certificate_type",
+    "issuer": "issuer_name",
+    "subject": "subject_name",
+    "validFrom": "2024-01-01",
+    "validTo": "2025-01-01",
+    "serialNumber": "serial_number",
+    "thumbprint": "thumbprint_hash",
+    "authorizationEmail": "user@example.com",
+    "authorizationPhone": "+1234567890",
+    "sharedMode": "shared",
+    "createdRP": "relying_party_name",
+    "authModes": ["SMS", "EMAIL"],
+    "authMode": "SMS",
+    "SCAL": 2,
+    "contractExpirationDate": "2025-12-31",
+    "defaultPassphraseEnabled": true,
+    "trialEnabled": false,
+    "multisign": 1,
+    "remainingSigningCounter": 100
+  },
+  "sharedMode": "shared",
+  "createdRP": "relying_party_name",
+  "authModes": ["SMS", "EMAIL"],
+  "authMode": "SMS",
+  "SCAL": 2,
+  "contractExpirationDate": "2025-12-31",
+  "defaultPassphraseEnabled": true,
+  "trialEnabled": false,
+  "multisign": 1,
+  "remainingSigningCounter": 100,
+  "authorizationEmail": "user@example.com",
+  "authorizationPhone": "+1234567890"
+}
+```
+
 ## Environment Variables
 
 Required environment variables:
@@ -147,6 +209,27 @@ export class YourService {
       return filteredCredentials;
     } catch (error) {
       console.error('Failed to get credentials:', error);
+    }
+  }
+
+  async getCredentialInfo() {
+    try {
+      // Get credential info with minimal parameters
+      const credentialInfo =
+        await this.authService.getCredentialInfo('credential-id');
+
+      // Get credential info with all parameters
+      const detailedCredentialInfo = await this.authService.getCredentialInfo(
+        'credential-id',
+        'agreement-uuid',
+        'certificate-filter',
+        true, // certInfoEnabled
+        true, // authInfoEnabled
+      );
+
+      return detailedCredentialInfo;
+    } catch (error) {
+      console.error('Failed to get credential info:', error);
     }
   }
 }
