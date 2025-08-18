@@ -1,0 +1,110 @@
+# Auth Module
+
+This module provides authentication functionality for the Digital Signature Middleware Service, converted from the C# implementation.
+
+## Features
+
+- **PKCS#12 Key Management**: Automatically loads and manages private keys from .p12 files
+- **SSL2 Header Generation**: Creates SSL2 authorization headers with PKCS#1 signatures
+- **Automatic Retry Logic**: Handles token expiration with automatic retry (up to 5 attempts)
+- **Token Management**: Manages access tokens and refresh tokens
+- **Thread-Safe Operations**: Ensures thread safety for concurrent requests
+
+## API Endpoints
+
+### POST /auth/login
+
+Authenticates a user and returns access/refresh tokens.
+
+**Request Body:**
+
+```json
+{
+  "username": "your_username",
+  "password": "your_password"
+}
+```
+
+**Response:**
+
+```json
+{
+  "error": 0,
+  "errorDescription": "Success",
+  "responseID": "response_id",
+  "accessToken": "access_token",
+  "refreshToken": "refresh_token"
+}
+```
+
+### POST /auth/logout
+
+Logs out the current user and clears all tokens.
+
+### GET /auth/status
+
+Returns the current authentication status.
+
+## Environment Variables
+
+Required environment variables:
+
+```bash
+# Digital Signature Service
+DIGITAL_SIGNATURE_URL=https://your-api-domain.com/api
+DIGITAL_SIGNATURE_RELYING_PARTY=your_relying_party
+DIGITAL_SIGNATURE_RELYING_PARTY_USER=your_username
+DIGITAL_SIGNATURE_RELYING_PARTY_PASSWORD=your_password
+DIGITAL_SIGNATURE_RELYING_PARTY_SIGNATURE=your_signature
+
+# SSL Configuration
+SSL_P12_PATH=path/to/your/keystore.p12
+SSL_P12_PASSWORD=your_p12_password
+```
+
+## Usage Example
+
+```typescript
+import { AuthService } from './modules/auth';
+
+@Injectable()
+export class YourService {
+  constructor(private readonly authService: AuthService) {}
+
+  async authenticate() {
+    try {
+      const response = await this.authService.login('username', 'password');
+      console.log('Access Token:', response.accessToken);
+
+      // Check if authenticated
+      if (this.authService.isAuthenticated()) {
+        const token = this.authService.getBearerToken();
+        // Use token for authenticated requests
+      }
+    } catch (error) {
+      console.error('Authentication failed:', error);
+    }
+  }
+}
+```
+
+## SSL2 Header Format
+
+The service generates SSL2 headers in the format:
+
+```
+SSL2 BASE64(username:password:signature:timestamp:pkcs1Signature), Basic BASE64(USERNAME:username:password)
+```
+
+Where:
+
+- `username`, `password`, `signature`: From relying party configuration
+- `timestamp`: Current epoch time in milliseconds
+- `pkcs1Signature`: SHA-256 hash signed with private key from .p12 file
+
+## Error Handling
+
+- **3005/3006**: Token expired/invalid - automatically retries
+- **Other errors**: Throws UnauthorizedException with error description
+- **Max retries**: 5 attempts before giving up
+- **Private key errors**: Throws error during initialization

@@ -66,4 +66,23 @@ export class SignatureService {
 
     return ssl2;
   }
+
+  getAuthorizationHeader() {
+    const relyingPartyUser =
+      process.env.DIGITAL_SIGNATURE_RELYING_PARTY_USER || '';
+    const relyingPartyPassword =
+      process.env.DIGITAL_SIGNATURE_RELYING_PARTY_PASSWORD || '';
+
+    const ssl2 = this.calculateSSL2();
+    const ssl2Encode = Buffer.from(ssl2).toString('base64');
+
+    const basic = 'USERNAME:' + relyingPartyUser + ':' + relyingPartyPassword;
+
+    const basicEncode = Buffer.from(basic).toString('base64');
+
+    return {
+      ssl2Encode,
+      basicEncode,
+    };
+  }
 }

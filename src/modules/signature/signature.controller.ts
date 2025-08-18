@@ -22,4 +22,14 @@ export class SignatureController {
       ssl2,
     };
   }
+
+  @Get('get-authorization-header')
+  getAuthorizationHeader() {
+    const authorizationHeader = this.signatureService.getAuthorizationHeader();
+
+    return {
+      ssl2Encode: authorizationHeader.ssl2Encode,
+      basicEncode: authorizationHeader.basicEncode,
+    };
+  }
 }
