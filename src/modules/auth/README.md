@@ -151,7 +151,7 @@ Retrieves detailed information about a specific credential/certificate.
 }
 ```
 
-### POST /auth/credentials/authorize
+### POST /auth/credentials/authorize76859044
 
 Authorizes a credential for signing operations.
 

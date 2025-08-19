@@ -23,12 +23,6 @@ export class SignatureService {
     const relyingPartyKeyStorePassword =
       process.env.DIGITAL_SIGNATURE_RELYING_PARTY_KEYSTORE_PASSWORD || '';
 
-    console.log('relyingPartyUser', relyingPartyUser);
-    console.log('relyingPartyPassword', relyingPartyPassword);
-    console.log('relyingPartySignature', relyingPartySignature);
-    console.log('relyingPartyKeyStore', relyingPartyKeyStore);
-    console.log('relyingPartyKeyStorePassword', relyingPartyKeyStorePassword);
-
     const timestamp = (
       Date.now() - new Date(Date.UTC(1970, 0, 1, 0, 0, 0)).getTime()
     ).toString();

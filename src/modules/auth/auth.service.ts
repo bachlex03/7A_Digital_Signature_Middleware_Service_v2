@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -10,6 +13,7 @@ import { CredentialListRequestDto } from './dto/credential-list-request.dto';
 import { CredentialInfoRequestDto } from './dto/credential-info-request.dto';
 import { CredentialAuthorizeRequestDto } from './dto/credential-authorize-request.dto';
 import { sslConfig } from 'src/configs/ssl/ssl.config';
+import MakeSignature from 'src/utils/make-signature';
 
 @Injectable()
 export class AuthService {
@@ -64,6 +68,8 @@ export class AuthService {
   async login(username: string, password: string): Promise<LoginResponseDto> {
     this.logger.log('____________auth/login____________');
 
+    const { relyingParty } = sslConfig();
+
     let authHeader: string;
     if (this.refreshToken) {
       authHeader = this.refreshToken;
@@ -72,17 +78,14 @@ export class AuthService {
       authHeader = this.generateAuthorizationHeader(username, password);
     }
 
-    this.logger.log(`Login-retry: ${this.retryLoginCount}`);
+    console.log('authHeader', authHeader);
 
-    console.log(
-      'process.env.DIGITAL_SIGNATURE_RELYING_PARTY',
-      process.env.DIGITAL_SIGNATURE_RELYING_PARTY,
-    );
+    this.logger.log(`Login-retry: ${this.retryLoginCount}`);
 
     try {
       const loginRequest: LoginRequestDto = {
         rememberMeEnabled: true,
-        relyingParty: process.env.DIGITAL_SIGNATURE_RELYING_PARTY || '',
+        relyingParty: relyingParty,
         profile: 'rssp-119.432-v2.0',
         lang: 'VN',
       };
@@ -126,29 +129,48 @@ export class AuthService {
     username: string,
     password: string,
   ): string {
-    const timestamp = Date.now().toString();
-    const relyingPartyUser = this.configService.get<string>(
-      'DIGITAL_SIGNATURE_RELYING_PARTY_USER',
-    );
-    const relyingPartyPassword = this.configService.get<string>(
-      'DIGITAL_SIGNATURE_RELYING_PARTY_PASSWORD',
-    );
-    const relyingPartySignature = this.configService.get<string>(
-      'DIGITAL_SIGNATURE_RELYING_PARTY_SIGNATURE',
-    );
+    // const timestamp = Date.now().toString();
+    const timestamp2 = (
+      Date.now() - new Date(1970, 0, 1, 0, 0, 0, 0).getTime()
+    ).toString();
+
+    const {
+      digitalSignatureUrl,
+      relyingParty,
+      relyingPartyUser,
+      relyingPartyPassword,
+      relyingPartySignature,
+      p12Name,
+      p12Path,
+      p12Password,
+    } = sslConfig();
+
+    console.log('digitalSignatureUrl', digitalSignatureUrl);
+    console.log('relyingParty', relyingParty);
+    console.log('relyingPartyUser', relyingPartyUser);
+    console.log('relyingPartyPassword', relyingPartyPassword);
+    console.log('relyingPartySignature', relyingPartySignature);
+    console.log('p12Name', p12Name);
+    console.log('p12Path', p12Path);
+    console.log('p12Password', p12Password);
 
     if (!relyingPartyUser || !relyingPartyPassword || !relyingPartySignature) {
       throw new Error('Missing relying party configuration');
     }
 
-    // Create data to sign: username:password:signature:timestamp
-    const dataToSign = `${relyingPartyUser}${relyingPartyPassword}${relyingPartySignature}${timestamp}`;
+    // Create data to sign: username + password + signature + timestamp
+    const dataToSign = `${relyingPartyUser}${relyingPartyPassword}${relyingPartySignature}${timestamp2}`;
 
     // Generate PKCS1 signature
     const pkcs1Signature = this.createPKCS1Signature(dataToSign);
+    console.log('pkcs1Signature', pkcs1Signature);
+
+    //test
+    const pkcs1Signature2 = new MakeSignature(dataToSign, p12Path, p12Password);
+    console.log('pkcs1Signature2', pkcs1Signature2.getSignature());
 
     // Create SSL2 header: BASE64(username:password:signature:timestamp:pkcs1Signature)
-    const ssl2Data = `${relyingPartyUser}:${relyingPartyPassword}:${relyingPartySignature}:${timestamp}:${pkcs1Signature}`;
+    const ssl2Data = `${relyingPartyUser}:${relyingPartyPassword}:${relyingPartySignature}:${timestamp2}:${pkcs1Signature2.getSignature()}`;
     const ssl2Encoded = forge.util.encode64(ssl2Data);
 
     // Create Basic auth: BASE64(USERNAME:username:password)
@@ -185,10 +207,6 @@ export class AuthService {
     authHeader: string,
   ): Promise<LoginResponseDto> {
     const baseUrl = this.configService.get<string>('DIGITAL_SIGNATURE_URL');
-
-    console.log('baseUrl', baseUrl);
-    console.log('loginRequest', loginRequest);
-    console.log('authHeader', authHeader);
 
     const url = `${baseUrl}/auth/login`;
 
